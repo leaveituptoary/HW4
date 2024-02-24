@@ -1,0 +1,353 @@
+Homework 4
+Ariel Harewood
+2024-02-20
+Lab 3
+library(ggplot2)
+library(tidyverse)
+## ── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
+## ✔ dplyr     1.1.4     ✔ readr     2.1.5
+## ✔ forcats   1.0.0     ✔ stringr   1.5.1
+## ✔ lubridate 1.9.3     ✔ tibble    3.2.1
+## ✔ purrr     1.0.2     ✔ tidyr     1.3.1
+## ── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
+## ✖ dplyr::filter() masks stats::filter()
+## ✖ dplyr::lag()    masks stats::lag()
+## ℹ Use the conflicted package (<http://conflicted.r-lib.org/>) to force all conflicts to become errors
+# Load the data from the .RData file
+load("BRFSS2022_rev.RData")
+
+# convert to numeric
+ACEdidntask <- (as.numeric(is.na(brfss22$ACEDEPRS)) + 
+                        as.numeric(is.na(brfss22$ACEDRINK)) +
+                        as.numeric(is.na(brfss22$ACEDRUGS)) +
+                        as.numeric(is.na(brfss22$ACEPRISN)) +
+                        as.numeric(is.na(brfss22$ACEDIVRC)) +
+                        as.numeric(is.na(brfss22$ACEPUNCH)) +
+                        as.numeric(is.na(brfss22$ACEHURT1)) +
+                        as.numeric(is.na(brfss22$ACESWEAR)) +
+                        as.numeric(is.na(brfss22$ACETOUCH)) )
+
+# with zero missing values for any of ACE questions
+select_ACE <- (ACEdidntask == 0) 
+brfss_ACE <- subset(brfss22, select_ACE)
+For the task, we will check how the different options for treating yes, no, don’t know and refused. Meaning we will conduct the analysis for each of the 3 options.
+
+Maybe the first blank is “yes” but next three are “no”; or first blank is “yes” then “no” then 2 more “yes”; or yes/no/NULL/NULL. Try each and look how the hypothesis test varies.
+
+Option 1: First blank is “yes” and next three are “no”
+The first option is to treat yes as yes, and the other options as no.
+
+To do that, we will be factor re-coding our data frame, and to make sure we didn’t re-code the original data frame, the best way is to copy 3 different data frames and edit each for one option only.
+
+# copying 3 dataframes
+brfss_ACE_1 <- brfss_ACE # dataframe 1
+brfss_ACE_2 <- brfss_ACE # dataframe 2
+brfss_ACE_3 <- brfss_ACE # dataframe 3
+
+brfss_ACE_1$ACEDRINK_recode <- fct_recode(
+  brfss_ACE_1$ACEDRINK, 
+  "Yes" = "Yes, Adverse Childhood Exper, lived with someone who was a problem drinker or alcoholic",
+  "No" = "No",
+  "No" = "dont know not sure",
+  "No" = "refused")
+What fraction of the sample lived with a problem drinker?
+I will handle this part in 3 different ways, counts, proportion and Fraction
+
+Counts of Each Category
+# counts of each category
+table(brfss_ACE_1$ACEDRINK_recode)
+## 
+##   Yes    No 
+## 11472 36500
+Proportion of Each Category (percentage)
+# proportion 
+prop.table(table(brfss_ACE_1$ACEDRINK_recode)) * 100
+## 
+##      Yes       No 
+## 23.91395 76.08605
+Fraction of Each Category
+# Fraction
+# number of those who lived with a problem drinker
+num_yes <- sum(brfss_ACE_1$ACEDRINK_recode == "Yes")
+total <- nrow(brfss_ACE_1) # total number in the sample
+fraction_yes <- num_yes / total # fraction of the sample that lived with a problem drinker
+fraction_yes # Print the fraction
+## [1] 0.2391395
+What fraction lived with someone with a drug problem?
+re-coding
+
+brfss_ACE_1$ACEDRUGS_recode <- fct_recode(
+  brfss_ACE_1$ACEDRUGS, 
+  "Yes" = "Yes, Adverse Childhood Exper, lived with someone who used illegal street drugs or who abused prescription medications",
+  "No" = "No",
+  "No" = "dont know not sure",
+  "No" = "refused")
+Counts of Each Category
+# counts of each category
+table(brfss_ACE_1$ACEDRUGS_recode)
+## 
+##   Yes    No 
+##  4664 43308
+Proportion of Each Category (percentage)
+# proportion 
+prop.table(table(brfss_ACE_1$ACEDRUGS_recode)) * 100
+## 
+##       Yes        No 
+##  9.722338 90.277662
+Fraction of Each Category
+# Fraction
+cat('\nfraction of the sample that lived with someone with a drug problem\n')
+## 
+## fraction of the sample that lived with someone with a drug problem
+num_yes <- sum(brfss_ACE_1$ACEDRUGS_recode == "Yes") # number of those who lived with someone with a drug problem
+total <- nrow(brfss_ACE_1) # total number in the sample
+fraction_yes <- num_yes / total # fraction of the sample 
+fraction_yes # Print the fraction
+## [1] 0.09722338
+What fraction of people who lived with a problem drinker also lived with someone with a drug problem? And vice versa?
+# number of individuals who lived with both
+num_both_yes <- sum(brfss_ACE_1$ACEDRINK_recode == "Yes" & brfss_ACE_1$ACEDRUGS_recode == "Yes")
+
+# fraction of people who lived with both
+fraction_both_yes <- num_both_yes / total
+
+# Print the fractions
+print(fraction_both_yes)
+## [1] 0.06595514
+Statistical Test
+Form a hypothesis test: is there a difference between the fraction of people who lived with a problem drinker, and the same fraction, conditional on also living with someone with drug problem?
+
+Null Hypothesis:
+
+There is no significant difference between the proportions of the two groups being compared. Meaning, the proportion of people who lived with a problem drinker is the same as the proportion of people who lived with a problem drinker and someone with a drug problem.
+
+Alternative Hypothesis:
+
+The alternative hypothesis suggests that there is a significant difference between the proportions of the two groups. In this case, it means the proportion of people who lived with a problem drinker is different from the proportion of people who lived with both a problem drinker and someone with a drug problem.
+
+# Calculate the sample sizes
+n_yes <- sum(brfss_ACE_1$ACEDRINK_recode == "Yes")
+n_both_yes <- sum(brfss_ACE_1$ACEDRINK_recode == "Yes" & brfss_ACE_1$ACEDRUGS_recode == "Yes")
+
+# proportion test
+prop.test(c(n_yes,n_both_yes), c(total,total), cor=F)
+## 
+##  2-sample test for equality of proportions without continuity correction
+## 
+## data:  c(n_yes, n_both_yes) out of c(total, total)
+## X-squared = 5564.9, df = 1, p-value < 2.2e-16
+## alternative hypothesis: two.sided
+## 95 percent confidence interval:
+##  0.1687681 0.1776006
+## sample estimates:
+##     prop 1     prop 2 
+## 0.23913950 0.06595514
+The p-values is less than 0.05, suggesting that the proportion of people who lived with a problem drinker is significantly different from the proportion of people who lived with both a problem drinker and someone with a drug problem.
+
+Option 2: first blank is “yes” then “no” then 2 more “yes”
+Re-coding
+
+brfss_ACE_2$ACEDRINK_recode <- fct_recode(
+  brfss_ACE_2$ACEDRINK, 
+  "Yes" = "Yes, Adverse Childhood Exper, lived with someone who was a problem drinker or alcoholic",
+  "No" = "No",
+  "Yes" = "dont know not sure",
+  "Yes" = "refused")
+What fraction of the sample lived with a problem drinker?
+Counts of Each Category
+# counts of each category
+table(brfss_ACE_2$ACEDRINK_recode)
+## 
+##   Yes    No 
+## 12456 35516
+Proportion of Each Category (percentage)
+# proportion 
+prop.table(table(brfss_ACE_2$ACEDRINK_recode)) * 100
+## 
+##      Yes       No 
+## 25.96515 74.03485
+Fraction of Each Category
+# Fraction
+# number of those who lived with a problem drinker
+num_yes <- sum(brfss_ACE_2$ACEDRINK_recode == "Yes")
+total <- nrow(brfss_ACE_2) # total number in the sample
+fraction_yes <- num_yes / total # fraction of the sample that lived with a problem drinker
+fraction_yes # Print the fraction
+## [1] 0.2596515
+What fraction lived with someone with a drug problem?
+re-coding
+
+brfss_ACE_2$ACEDRUGS_recode <- fct_recode(
+  brfss_ACE_2$ACEDRUGS, 
+  "Yes" = "Yes, Adverse Childhood Exper, lived with someone who used illegal street drugs or who abused prescription medications",
+  "No" = "No",
+  "Yes" = "dont know not sure",
+  "Yes" = "refused")
+Counts of Each Category
+# counts of each category
+table(brfss_ACE_2$ACEDRUGS_recode)
+## 
+##   Yes    No 
+##  5725 42247
+Proportion of Each Category (percentage)
+# proportion 
+prop.table(table(brfss_ACE_2$ACEDRUGS_recode)) * 100
+## 
+##      Yes       No 
+## 11.93404 88.06596
+Fraction of Each Category
+# Fraction
+num_yes <- sum(brfss_ACE_2$ACEDRUGS_recode == "Yes") # number of those who lived with someone with a drug problem
+total <- nrow(brfss_ACE_2) # total number in the sample
+fraction_yes <- num_yes / total # fraction of the sample 
+fraction_yes # Print the fraction
+## [1] 0.1193404
+What fraction of people who lived with a problem drinker also lived with someone with a drug problem? And vice versa?
+# number of individuals who lived with both
+num_both_yes <- sum(brfss_ACE_2$ACEDRINK_recode == "Yes" & brfss_ACE_2$ACEDRUGS_recode == "Yes")
+
+# fraction of people who lived with both
+fraction_both_yes <- num_both_yes / total
+
+# Print the fractions
+print(fraction_both_yes)
+## [1] 0.0860502
+Statistical Test
+Form a hypothesis test: is there a difference between the fraction of people who lived with a problem drinker, and the same fraction, conditional on also living with someone with drug problem?
+
+Null Hypothesis:
+
+There is no significant difference between the proportions of the two groups being compared. Meaning, the proportion of people who lived with a problem drinker is the same as the proportion of people who lived with a problem drinker and someone with a drug problem.
+
+Alternative Hypothesis:
+
+The alternative hypothesis suggests that there is a significant difference between the proportions of the two groups. In this case, it means the proportion of people who lived with a problem drinker is different from the proportion of people who lived with both a problem drinker and someone with a drug problem.
+
+# Calculate the sample sizes
+n_yes <- sum(brfss_ACE_2$ACEDRINK_recode == "Yes")
+n_both_yes <- sum(brfss_ACE_2$ACEDRINK_recode == "Yes" & brfss_ACE_2$ACEDRUGS_recode == "Yes")
+
+# proportion test
+prop.test(c(n_yes,n_both_yes), c(total,total), cor=F)
+## 
+##  2-sample test for equality of proportions without continuity correction
+## 
+## data:  c(n_yes, n_both_yes) out of c(total, total)
+## X-squared = 5056, df = 1, p-value < 2.2e-16
+## alternative hypothesis: two.sided
+## 95 percent confidence interval:
+##  0.1689439 0.1782586
+## sample estimates:
+##    prop 1    prop 2 
+## 0.2596515 0.0860502
+The p-values is less than 0.05, suggesting that the proportion of people who lived with a problem drinker is significantly different from the proportion of people who lived with both a problem drinker and someone with a drug problem.
+
+Option 3: yes/no/NULL/NULL
+Re-coding
+
+When re-coding this, I did not want the nulls to be a level, so I first re-coded to only include the Yes or No category, then I removed the ‘don’t know’ and ‘refused’ categories. But even after removing them, remember that they are already included in the levels. So I proceeded to omit them from the levels, so that I could remaining with just 2 levels, yes or No.
+
+# Recode levels using fct_recode() and keep NA values as NA data type
+brfss_ACE_3$ACEDRINK_recode <- fct_recode(
+  brfss_ACE_3$ACEDRINK, 
+  "Yes" = "Yes, Adverse Childhood Exper, lived with someone who was a problem drinker or alcoholic",
+  "No" = "No")
+
+# Remove rows where ACEDRINK is "dont know not sure" or "refused"
+brfss_ACE_3 <- brfss_ACE_3[!(brfss_ACE_3$ACEDRINK %in% c("dont know not sure", "refused")), ]
+
+# Remove unused levels from ACEDRINK_recode
+brfss_ACE_3$ACEDRINK_recode <- droplevels(brfss_ACE_3$ACEDRINK_recode)
+What fraction of the sample lived with a problem drinker?
+Counts of Each Category
+# counts of each category
+table(brfss_ACE_3$ACEDRINK_recode)
+## 
+##   Yes    No 
+## 11472 35516
+Proportion of Each Category (percentage)
+# proportion 
+prop.table(table(brfss_ACE_3$ACEDRINK_recode)) * 100
+## 
+##      Yes       No 
+## 24.41474 75.58526
+Fraction of Each Category
+# Fraction
+# number of those who lived with a problem drinker
+num_yes <- sum(brfss_ACE_3$ACEDRINK_recode == "Yes")
+total <- nrow(brfss_ACE_3) # total number in the sample
+fraction_yes <- num_yes / total # fraction of the sample that lived with a problem drinker
+fraction_yes # Print the fraction
+## [1] 0.2441474
+What fraction lived with someone with a drug problem?
+Re-coding
+
+# Recode levels using fct_recode() and keep NA values as NA data type
+brfss_ACE_3$ACEDRUGS_recode <- fct_recode(
+  brfss_ACE_3$ACEDRUGS, 
+  "Yes" = "Yes, Adverse Childhood Exper, lived with someone who used illegal street drugs or who abused prescription medications",
+  "No" = "No")
+
+# Remove rows where ACEDRINK is "dont know not sure" or "refused"
+brfss_ACE_3 <- brfss_ACE_3[!(brfss_ACE_3$ACEDRUGS %in% c("dont know not sure", "refused")), ]
+
+# Remove unused levels from ACEDRINK_recode
+brfss_ACE_3$ACEDRUGS_recode <- droplevels(brfss_ACE_3$ACEDRUGS_recode)
+Counts of Each Category
+# counts of each category
+table(brfss_ACE_3$ACEDRUGS_recode)
+## 
+##   Yes    No 
+##  4647 42076
+Proportion of Each Category (percentage)
+# proportion 
+prop.table(table(brfss_ACE_3$ACEDRUGS_recode)) * 100
+## 
+##       Yes        No 
+##  9.945851 90.054149
+Fraction of Each Category
+# Fraction
+num_yes <- sum(brfss_ACE_3$ACEDRUGS_recode == "Yes") # number of those who lived with someone with a drug problem
+total <- nrow(brfss_ACE_3) # total number in the sample
+fraction_yes <- num_yes / total # fraction of the sample 
+fraction_yes # Print the fraction
+## [1] 0.09945851
+What fraction of people who lived with a problem drinker also lived with someone with a drug problem? And vice versa?
+# number of individuals who lived with both
+num_both_yes <- sum(brfss_ACE_3$ACEDRINK_recode == "Yes" & brfss_ACE_3$ACEDRUGS_recode == "Yes")
+
+# fraction of people who lived with both
+fraction_both_yes <- num_both_yes / total
+
+# Print the fractions
+print(fraction_both_yes)
+## [1] 0.06771825
+Statistical Testing
+Form a hypothesis test: is there a difference between the fraction of people who lived with a problem drinker, and the same fraction, conditional on also living with someone with drug problem?
+
+Null Hypothesis:
+
+There is no significant difference between the proportions of the two groups being compared. Meaning, the proportion of people who lived with a problem drinker is the same as the proportion of people who lived with a problem drinker and someone with a drug problem.
+
+Alternative Hypothesis:
+
+The alternative hypothesis suggests that there is a significant difference between the proportions of the two groups. In this case, it means the proportion of people who lived with a problem drinker is different from the proportion of people who lived with both a problem drinker and someone with a drug problem.
+
+# Calculate the sample sizes
+n_yes <- sum(brfss_ACE_3$ACEDRINK_recode == "Yes")
+n_both_yes <- sum(brfss_ACE_3$ACEDRINK_recode == "Yes" & brfss_ACE_3$ACEDRUGS_recode == "Yes")
+
+# proportion test
+prop.test(c(n_yes,n_both_yes), c(total,total), cor=F)
+## 
+##  2-sample test for equality of proportions without continuity correction
+## 
+## data:  c(n_yes, n_both_yes) out of c(total, total)
+## X-squared = 5436.1, df = 1, p-value < 2.2e-16
+## alternative hypothesis: two.sided
+## 95 percent confidence interval:
+##  0.1700782 0.1790860
+## sample estimates:
+##     prop 1     prop 2 
+## 0.24230037 0.06771825
+The p-values is less than 0.05, suggesting that the proportion of people who lived with a problem drinker is significantly different from the proportion of people who lived with both a problem drinker and someone with a drug problem.
